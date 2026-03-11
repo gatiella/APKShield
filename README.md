@@ -1,4 +1,4 @@
-update the readme.txt////# 🛡️ APKShield v2.0 — Professional Android APK Security Scanner
+# 🛡️ APKShield v2.0 — Professional Android APK Security Scanner
 
 A comprehensive static analysis tool for Android APK files. Detects security vulnerabilities, hardcoded secrets, weak cryptography, insecure network configurations, and validates OWASP Mobile Top 10 compliance — without executing any code.
 
