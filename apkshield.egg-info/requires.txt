@@ -1,0 +1,8 @@
+androguard>=4.0.0
+reportlab>=4.0.0
+pyOpenSSL>=24.0.0
+
+[dev]
+pytest>=7.0
+black
+ruff

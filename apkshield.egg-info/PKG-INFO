@@ -1,0 +1,23 @@
+Metadata-Version: 2.4
+Name: apkshield
+Version: 2.1.0
+Summary: Professional Android APK Security Scanner
+License: MIT
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Information Technology
+Classifier: Topic :: Security
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.9
+Requires-Dist: androguard>=4.0.0
+Requires-Dist: reportlab>=4.0.0
+Requires-Dist: pyOpenSSL>=24.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Dynamic: classifier
+Dynamic: license
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

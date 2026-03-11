@@ -1,0 +1,2 @@
+[console_scripts]
+apkshield = apkshield.__main__:main
