@@ -17,6 +17,12 @@ from apkshield.analyzers.manifest     import ManifestAnalyzer
 from apkshield.analyzers.code         import CodeScanner
 from apkshield.analyzers.certificate  import CertificateAnalyzer
 from apkshield.analyzers.native       import NativeAnalyzer
+from apkshield.analyzers.dex          import DexAnalyzer
+from apkshield.analyzers.dynamic      import DynamicAnalyzer
+from apkshield.analyzers.ads          import AdsAnalyzer
+from apkshield.analyzers.integrity    import IntegrityAnalyzer
+from apkshield.analyzers.firebase     import FirebaseAnalyzer
+from apkshield.analyzers.network_map  import NetworkMapper
 
 log = logger.get()
 
@@ -29,14 +35,16 @@ class APKScanner:
         verbose: bool = False,
         severity_filter: Optional[str] = None,
         category_filter: Optional[str] = None,
+        no_network_probes: bool = False,
     ):
-        self.apk_path        = os.path.abspath(apk_path)
-        self.output_dir      = output_dir
-        self.verbose         = verbose
-        self.severity_filter = severity_filter
-        self.category_filter = category_filter
-        self._work_dir       = tempfile.mkdtemp(prefix="apkshield_")
-        self.result          = ScanResult()
+        self.apk_path          = os.path.abspath(apk_path)
+        self.output_dir        = output_dir
+        self.verbose           = verbose
+        self.severity_filter   = severity_filter
+        self.category_filter   = category_filter
+        self.no_network_probes = no_network_probes
+        self._work_dir         = tempfile.mkdtemp(prefix="apkshield_")
+        self.result            = ScanResult()
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -92,7 +100,8 @@ class APKScanner:
             r.target_sdk   = manifest.meta.get("target_sdk",   "")
 
         # ── Code scan ─────────────────────────────────────────────────────────
-        code = CodeScanner(extractor.text_files(), extracted)
+        text_files = extractor.text_files()
+        code = CodeScanner(text_files, extracted)
         code.scan()
         r.findings.extend(code.findings)
         r.third_party_sdks = code.sdks
@@ -107,10 +116,56 @@ class APKScanner:
         native = NativeAnalyzer(extracted)
         native.analyze()
         r.findings.extend(native.findings)
-        r.native_libs    = native.libraries
-        r.is_obfuscated  = not any(
+        r.native_libs   = native.libraries
+        r.is_obfuscated = not any(
             f.rule_id == "NO_OBFUSCATION" for f in native.findings
         ) if native.libraries or self._has_smali(extracted) else None
+
+        # ── DEX bytecode analysis ─────────────────────────────────────────────
+        dex = DexAnalyzer(self.apk_path, extracted)
+        dex.analyze()
+        r.findings.extend(dex.findings)
+        r.dex_call_graph_built = dex.call_graph_built
+        r.taint_paths          = dex.taint_paths
+
+        # ── Dynamic analysis resistance ───────────────────────────────────────
+        dynamic = DynamicAnalyzer(extracted, text_files)
+        dynamic.analyze()
+        r.findings.extend(dynamic.findings)
+        r.cert_pinning_present    = dynamic.cert_pinning_present
+        r.frida_detection_present = dynamic.frida_detection_present
+        r.root_detection_present  = dynamic.root_detection_present
+
+        # ── Ad SDK / privacy audit ────────────────────────────────────────────
+        ads = AdsAnalyzer(extracted, text_files, r.permissions)
+        ads.analyze()
+        r.findings.extend(ads.findings)
+        r.ad_sdks        = ads.detected_sdks
+        r.consent_signals = ads.consent_signals
+
+        # ── IAP + anti-tampering ──────────────────────────────────────────────
+        integrity = IntegrityAnalyzer(extracted, text_files)
+        integrity.analyze()
+        r.findings.extend(integrity.findings)
+        r.has_iap              = integrity.has_iap
+        r.iap_server_validated = integrity.server_validation_present
+
+        # ── Firebase misconfiguration ─────────────────────────────────────────
+        firebase = FirebaseAnalyzer(
+            extracted, text_files,
+            do_network_probes=not self.no_network_probes,
+        )
+        firebase.analyze()
+        r.findings.extend(firebase.findings)
+        r.firebase_urls = firebase.firebase_urls
+
+        # ── Network endpoint map ──────────────────────────────────────────────
+        netmap = NetworkMapper(extracted, text_files)
+        netmap.analyze()
+        r.findings.extend(netmap.findings)
+        r.network_endpoints = netmap.endpoints
+        r.network_domains   = netmap.domains
+        r.domain_report     = netmap.domain_report
 
         # ── Apply user filters ────────────────────────────────────────────────
         if self.severity_filter:

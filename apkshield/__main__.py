@@ -58,6 +58,8 @@ def _parse_args() -> argparse.Namespace:
                    help="Only show findings from matching category (partial match)")
     p.add_argument("--exit-code",          action="store_true",
                    help="Exit with code 1 if HIGH or CRITICAL findings present (useful for CI)")
+    p.add_argument("--no-network-probes",  action="store_true",
+                   help="Skip live network probes (Firebase, Storage). Faster but misses live misconfig checks.")
     return p.parse_args()
 
 
@@ -96,6 +98,7 @@ def main() -> None:
         verbose=args.verbose,
         severity_filter=args.severity_filter,
         category_filter=args.category_filter,
+        no_network_probes=args.no_network_probes,
     )
     try:
         result = scanner.scan()
@@ -179,7 +182,15 @@ def _print_summary(result) -> None:
         col = C.get(sev,"")
         bar = "█" * min(n, 50)
         print(f"    {col}{sev:<10}{C['R']}  {n:4}  {col}{bar}{C['R']}")
-    print(f"\n  Total    : {counts['TOTAL']}  |  SDKs: {len(result.third_party_sdks)}")
+    print(f"\n  Total    : {counts['TOTAL']}  |  SDKs: {len(result.third_party_sdks)}  |  Ad SDKs: {len(result.ad_sdks)}  |  Domains: {len(result.network_domains)}")
+
+    if result.has_iap:
+        validated = "✅ server-side" if result.iap_server_validated else "❌ CLIENT-SIDE ONLY"
+        print(f"  IAP      : detected — validation: {validated}")
+    if result.firebase_urls:
+        print(f"  Firebase : {len(result.firebase_urls)} DB URL(s) probed")
+    if result.dex_call_graph_built:
+        print(f"  DEX      : call graph built | taint paths: {len(result.taint_paths)}")
 
     top = result.findings[:6]
     if top:

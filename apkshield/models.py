@@ -112,6 +112,29 @@ class ScanResult:
     allows_backup:   bool = False
     is_obfuscated:   Optional[bool] = None   # None = unknown
 
+    # ── Dynamic analysis resistance ───────────────────────────────
+    cert_pinning_present:    bool = False
+    frida_detection_present: bool = False
+    root_detection_present:  bool = False
+    has_iap:                 bool = False
+    iap_server_validated:    bool = False
+
+    # ── Network map ───────────────────────────────────────────────
+    network_endpoints: List[str]  = field(default_factory=list)
+    network_domains:   List[str]  = field(default_factory=list)
+    domain_report:     List[Dict] = field(default_factory=list)
+
+    # ── Ad SDKs ───────────────────────────────────────────────────
+    ad_sdks:         List[Dict] = field(default_factory=list)
+    consent_signals: List[str]  = field(default_factory=list)
+
+    # ── Firebase ──────────────────────────────────────────────────
+    firebase_urls: List[str] = field(default_factory=list)
+
+    # ── DEX bytecode analysis ─────────────────────────────────────
+    dex_call_graph_built: bool       = False
+    taint_paths:          List[dict] = field(default_factory=list)
+
     # ── Errors ────────────────────────────────────────────────────
     errors: List[str] = field(default_factory=list)
 
@@ -194,6 +217,23 @@ class ScanResult:
             "certificates": [c.to_dict() for c in self.certificates],
             "native_libraries": self.native_libs,
             "third_party_sdks": self.third_party_sdks,
+            "ad_sdks": self.ad_sdks,
+            "consent_signals": self.consent_signals,
+            "firebase_urls": self.firebase_urls,
+            "network_endpoints": self.network_endpoints[:100],  # cap for readability
+            "network_domains": self.network_domains,
+            "domain_report": self.domain_report,
+            "dex_analysis": {
+                "call_graph_built": self.dex_call_graph_built,
+                "taint_paths": self.taint_paths[:50],
+            },
+            "integrity": {
+                "cert_pinning_present":    self.cert_pinning_present,
+                "frida_detection_present": self.frida_detection_present,
+                "root_detection_present":  self.root_detection_present,
+                "has_iap":                 self.has_iap,
+                "iap_server_validated":    self.iap_server_validated,
+            },
             "errors": self.errors,
         }
         return d
